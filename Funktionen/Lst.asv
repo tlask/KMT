@@ -1,0 +1,71 @@
+function [AufOrder] = Lst(A,HZ,KZ,BZ,DL,ArtOrder,VerfOhneDL)
+%
+% [AufOrder] = <strong>LST</strong>(A,HZ,KZ,BZ,ArtOrder)
+%
+% Auftragsreihenfolgeverfahren:
+%   Anordnung nach aufsteigenden Pufferzeit.
+%
+% Parameter:
+%   A: Zuweisungsmatrix (mxn Matrix) mit nachgefragten Stückzahlen [ME]
+%      von Artikel Pi (i = 1...m) im Auftrag Aj (j = 1...n)
+%   HZ: Holzeit [ZE]
+%   KZ: Kommissionierzeit [ZE/ME]
+%   BZ: Bearbeitungszeit [ZE]
+%   DL: Deadliine [ZE]
+%   ArtOrder: Artikelreihenfolge
+%   VerfOhneDL: String zur Bestimmung des Auftragsreihenfolgeverfahrens,
+%               das auf Aufträge ohne Deadline angewendet werden soll.
+
+
+n = size(A,2);
+Aart = SortArt(A,ArtOrder);
+BZart = SortArt(BZ,ArtOrder);
+HZart = SortArt(HZ,ArtOrder);
+KZart = SortArt(KZ,ArtOrder);
+
+k = LetzterArtikel(Aart);
+
+Cs = spezifiziertenFertigstellungszeitpunkt(BZart,k,Aart,HZart,KZart);
+St = DL - Cs.'; %St = slack time
+
+AufOrder=zeros(1,n);
+
+StHelp = St;
+for i = 1:n                         % for-Schleife: ordnet die AufR nach aufsteigender Pufferzeit
+    x = find(StHelp==min(StHelp),1);    % Findet die Stelle, wo das Minimums ist; bei Mehreren wird das Erste gewählt
+    StHelp(x) = Inf;                    % Fügt an der Stelle des Minimums eine große positive Zahl ein
+    AufOrder(i) = x;                    % Stellt das Minimum an die i-te Stelle der Lösung
+end
+clear StHelp;
+
+AnzKeinDL = 0;
+
+for i = 1:n                            % for-Schleife überprüft, ob Aufträge ohne Deadline (DL == 0) vorhanden sind.
+    if Cs(i) == -St(i)                      % Wenn ein Auftrag in der AufR eine DL von 0 hat (zuvor wurde St = DL - Cs gerechnet)...
+        hilf = AufOrder(i);                 %
+        for j = i:n-1                       %
+            AufOrder(j) = AufOrder(j+1);    % ...wird er aus der AufR entnommen und hinten angestellt
+        end                                 %
+        AufOrder(n) = hilf;                 %
+        clear hilf;                         %
+        AnzKeinDL = AnzKeinDL + 1;          %
+    end
+end
+
+if AnzKeinDL>0                      % wenn es Aufträge ohne Deadline gibt...
+    switch VerfOhneDL
+    case 'Topo'
+        hilf = AnzKeinDL:-1:1;                                          % ...dann bestimme die Reihenfolge dieser Aufträge nach einem bereits bekannten Verfahren (hier: topologische Reihenfolge)
+    case 'MinSFSZ'
+        hilf = MinSFSZ(AufOrder(:,(n-AnzKeinDL+1):n),HZ,KZ,BZ,ArtOrder);    % ...dann bestimme die Reihenfolge dieser Aufträge nach einem bereits bekannten Verfahren (hier: nach aufst. spez. Fertigstell.zeitp.)
+    case 'MaxSFSZ'
+        hilf = MaxSFSZ(AufOrder(:,(n-AnzKeinDL+1):n),HZ,KZ,BZ,ArtOrder);    % ...dann bestimme die Reihenfolge dieser Aufträge nach einem bereits bekannten Verfahren (hier: nach abst. spez. Fertigstell.zeitp.)
+    end
+        
+    AufOrderHilf = SortAuf(AufOrder((n-AnzKeinDL+1):n),hilf);       %% 
+    for i=1:AnzKeinDL                                               % ordne den letzten Teil von aDA nach hilf, also der eben bestimmten Reihenfolge.
+        AufOrder(n-i+1)=AufOrderHilf(length(AufOrderHilf)-i+1);     %
+    end                                                             %%
+end
+
+end
