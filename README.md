@@ -20,4 +20,6 @@ Lösungsstrategien und deren Implementierung geliefert haben.
     33619 Bielefeld
     http://www.fh-bielefeld.de/ammo
 * Timo Lask
-* Hermann-Josef Kruse
+* Thyra F. Lye
+* David Nehab
+
